@@ -2,13 +2,10 @@ package chat.stoat.screens.chat
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -59,25 +56,21 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
-import chat.stoat.BuildConfig
 import chat.stoat.R
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.DirectMessages
 import chat.stoat.api.realtime.DisconnectionState
 import chat.stoat.api.realtime.RealtimeSocket
-import chat.stoat.api.routes.push.subscribePush
 import chat.stoat.callbacks.Action
 import chat.stoat.callbacks.ActionChannel
 import chat.stoat.composables.chat.DisconnectedNotice
 import chat.stoat.composables.screens.chat.drawer.ChannelSideDrawer
-import chat.stoat.dialogs.NotificationRationaleDialog
 import chat.stoat.internals.Changelogs
 import chat.stoat.internals.extensions.zero
 import chat.stoat.persistence.KVStorage
@@ -99,11 +92,8 @@ import chat.stoat.sheets.StatusSheet
 import chat.stoat.sheets.UserInfoSheet
 import chat.stoat.sheets.WebHookUserSheet
 import chat.stoat.sheets.spark.SwipeToReplySparkSheet
-import com.google.android.gms.tasks.OnCompleteListener
-import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.sentry.Sentry
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -155,7 +145,6 @@ class ChatRouterViewModel @Inject constructor(
     var latestChangelogRead by mutableStateOf(true)
     var latestChangelog by mutableStateOf("")
     var latestChangelogBody by mutableStateOf("")
-    var showNotificationRationale by mutableStateOf(false)
     var showEarlyAccessSpark by mutableStateOf(false)
     var showSwipeToReplySpark by mutableStateOf(false)
 
@@ -191,12 +180,6 @@ class ChatRouterViewModel @Inject constructor(
                 showSwipeToReplySpark = true
             }
 
-            val hasNotificationPermission =
-                NotificationManagerCompat.from(context).areNotificationsEnabled()
-            // right now we only show this in debug builds so Chucker can show its notification
-            if (!hasNotificationPermission && BuildConfig.DEBUG) {
-                showNotificationRationale = true
-            }
         }
     }
 
@@ -212,32 +195,6 @@ class ChatRouterViewModel @Inject constructor(
                     kvStorage.set("lastChannel/$server", destination.channelId)
                 }
             }
-        }
-    }
-
-    fun setRegisterForNotifications() {
-        showNotificationRationale = false
-        FirebaseMessaging.getInstance().token.addOnCompleteListener(
-            OnCompleteListener { task ->
-                if (!task.isSuccessful) {
-                    Log.w("FCM", "Fetching FCM registration token failed", task.exception)
-                    task.exception?.let { Sentry.captureException(it) }
-                    return@OnCompleteListener
-                }
-
-                val token = task.result
-                viewModelScope.launch {
-                    kvStorage.set("fcmToken", token)
-                    subscribePush(auth = token)
-                }
-            }
-        )
-    }
-
-    fun markNotificationsRejected() {
-        showNotificationRationale = false
-        viewModelScope.launch {
-            kvStorage.set("pushNotificationsRejected", true)
         }
     }
 
@@ -722,33 +679,6 @@ fun ChatRouterScreen(
                 }
             )
         }
-    }
-
-    val askNotificationsPermission =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                viewModel.setRegisterForNotifications()
-            } else {
-                viewModel.showNotificationRationale = false
-            }
-        }
-    if (viewModel.showNotificationRationale) {
-        NotificationRationaleDialog(
-            onDismiss = {
-                viewModel.showNotificationRationale = false
-            },
-            onSelected = { accepted ->
-                if (accepted) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        askNotificationsPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        viewModel.setRegisterForNotifications()
-                    }
-                } else {
-                    viewModel.markNotificationsRejected()
-                }
-            }
-        )
     }
 
     if (viewModel.showEarlyAccessSpark) {
