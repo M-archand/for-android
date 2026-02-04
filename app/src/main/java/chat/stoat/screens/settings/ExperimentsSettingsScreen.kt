@@ -42,6 +42,7 @@ import chat.stoat.api.settings.Experiments
 import chat.stoat.api.settings.FeatureFlags
 import chat.stoat.api.settings.LoadedSettings
 import chat.stoat.composables.markdown.RichMarkdown
+import chat.stoat.ndk.NativeLibraries
 import chat.stoat.persistence.KVStorage
 import chat.stoat.settings.dsl.SettingsPage
 import chat.stoat.settings.dsl.SubcategoryContentInsets
@@ -255,7 +256,9 @@ fun ExperimentsSettingsScreen(
                 ) {
                     Text("Kotlin")
                 }
-                if (FeatureFlags.finalMarkdownGranted || viewModel.mdRenderer.value == MarkdownRenderer.FinalMarkdown) {
+                if ((FeatureFlags.finalMarkdownGranted || viewModel.mdRenderer.value == MarkdownRenderer.FinalMarkdown) &&
+                    NativeLibraries.finalMarkdownAvailable
+                ) {
                     ToggleButton(
                         checked = viewModel.mdRenderer.value == MarkdownRenderer.FinalMarkdown,
                         onCheckedChange = { viewModel.setMdRenderer(MarkdownRenderer.FinalMarkdown) },

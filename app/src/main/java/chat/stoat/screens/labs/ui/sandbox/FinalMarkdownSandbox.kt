@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavController
 import chat.stoat.ndk.FinalMarkdown
+import chat.stoat.ndk.NativeLibraries
 import chat.stoat.settings.dsl.SettingsPage
 
 @Composable
@@ -23,7 +24,9 @@ fun FinalMarkdownSandbox(navController: NavController) {
 
     LaunchedEffect(submitMdSource) {
         submitMdSource?.let {
-            FinalMarkdown.process(it)
+            if (NativeLibraries.finalMarkdownAvailable) {
+                FinalMarkdown.process(it)
+            }
         }
     }
 
@@ -40,6 +43,11 @@ fun FinalMarkdownSandbox(navController: NavController) {
         Subcategory(
             title = { Text("Source", maxLines = 1, overflow = TextOverflow.Ellipsis) },
         ) {
+            if (!NativeLibraries.finalMarkdownAvailable) {
+                Text("FinalMarkdown native library is not available in this build.")
+                return@Subcategory
+            }
+
             TextField(
                 value = mdSource,
                 onValueChange = { mdSource = it },

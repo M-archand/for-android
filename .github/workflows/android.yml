@@ -29,8 +29,16 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+
+      - name: Download embedded dependencies
+        run: deno run -A scripts/download_deps.ts -y
 
       - name: Build with Gradle
         run: ./gradlew --no-daemon :app:assembleDebug
