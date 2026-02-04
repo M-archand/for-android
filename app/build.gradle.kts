@@ -104,10 +104,14 @@ android {
 
             applicationIdSuffix = ".debug"
             versionNameSuffix = "+debug"
+            val debugAppName =
+                buildproperty("build.debug.app_name", "RVX_DEBUG_APP_NAME")
+                    ?.ifBlank { "Stoat" }
+                    ?: "Stoat"
             resValue(
                 "string",
                 "app_name",
-                buildproperty("build.debug.app_name", "RVX_DEBUG_APP_NAME")!!
+                debugAppName
             )
 
             buildConfigField(
